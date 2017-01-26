@@ -13,6 +13,7 @@ private String hdfsURI;
 private String rangerURI;
 private String opUsername;
 private String opPassword;
+private int repeatPeriod;
 
 private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
@@ -89,6 +90,16 @@ public String toString() {
 			+ hdfsURI + "\n\trangerURI: " + rangerURI + "\n\topUsername: "
 			+ opUsername + "\n\topPassword(hashvalue): " + opPassword.hashCode()
 			+ "\n\tadditionalProperties: " + additionalProperties + "\n}";
+}
+
+
+public int getRepeatPeriod() {
+	return repeatPeriod;
+}
+
+
+public void setRepeatPeriod(int repeatPeriod) {
+	this.repeatPeriod = repeatPeriod;
 }
 
 }

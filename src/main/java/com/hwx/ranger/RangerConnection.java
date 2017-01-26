@@ -1,7 +1,6 @@
 package com.hwx.ranger;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 
 import org.apache.hadoop.security.authentication.client.AuthenticationException;
@@ -67,7 +66,7 @@ public interface RangerConnection {
 	 * @throws IOException
 	 * @throws AuthenticationException
 	 */
-	public  String getAllRepositoryPolicies(String repo) throws MalformedURLException, IOException, AuthenticationException ;
+	public  String getAllRepositoryPolicies() throws MalformedURLException, IOException, AuthenticationException ;
 	
 	
 	
@@ -79,9 +78,7 @@ public interface RangerConnection {
 	/**
 	 * <b>CREATE</b>
 	 * 
-	 * curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=CREATE
-                    [&overwrite=<true|false>][&blocksize=<LONG>][&replication=<SHORT>]
-                    [&permission=<OCTAL>][&buffersize=<INT>]"
+	 * curl -i -X PUT "http://<HOST>:<PORT>service/public/v2/api/policy"
 	 * @param path
 	 * @param is
 	 * @return
@@ -89,7 +86,7 @@ public interface RangerConnection {
 	 * @throws IOException
 	 * @throws AuthenticationException
 	 */
-	public String createPolicy(String path, InputStream is) throws MalformedURLException, IOException, AuthenticationException;
+	public String createPolicy(String jsonContent) throws MalformedURLException, IOException, AuthenticationException;
 
 	/*
 	 * ========================================================================

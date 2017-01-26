@@ -1,10 +1,14 @@
 package com.hwx.ranger;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.reflect.TypeToken;
+import java.lang.reflect.Type;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -46,6 +50,22 @@ public class JsonUtils {
        }
 
      }
+    
+    protected FileStatusResponse parseHDFSFileStatus(String jsonContent)  {
+    	FileStatusResponse inpObject=null;
+          if ((jsonContent == null) || jsonContent.isEmpty()) {
+            return (FileStatusResponse) Collections.emptyMap();
+          } else {
+            try {
+          	inpObject = new Gson().fromJson(jsonContent, FileStatusResponse.class);
+            } 
+            catch (JsonSyntaxException e) {
+          	  logger.error(e.getMessage());
+            }
+            return inpObject;
+          }
+
+        }
     protected RangerPolicyResponse parseRangerPolicy(String jsonContent)  {
       	 RangerPolicyResponse inpObject=null;
           if ((jsonContent == null) || jsonContent.isEmpty()) {
@@ -61,6 +81,22 @@ public class JsonUtils {
           }
 
         }
+    protected List<RangerPolicyResponse> parseRangerPolicies(String jsonContent)  {
+    	List<RangerPolicyResponse> inpObject=null;
+         if ((jsonContent == null) || jsonContent.isEmpty()) {
+           return null;
+         } else {
+           try {
+        	Type listType = new TypeToken<ArrayList<RangerPolicyResponse>>(){}.getType();
+         	inpObject = new Gson().fromJson(jsonContent, listType);
+           } 
+           catch (JsonSyntaxException e) {
+         	  logger.error(e.getMessage());
+           }
+           return inpObject;
+         }
+
+       }
     protected String prettyPrint(String jsonContent)  {
    	 String prettyJsonString=null;
    	String data=null;

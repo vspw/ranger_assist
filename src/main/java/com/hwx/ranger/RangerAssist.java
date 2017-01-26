@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Timer;
 import java.util.TimerTask;
 
 import org.apache.hadoop.security.authentication.client.AuthenticationException;
@@ -19,21 +18,191 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
-
-public class RangerAssist extends TimerTask {
+class RangerAssist extends TimerTask {
 	WebHDFSConnection conn = null;
 	RangerConnection rconn=null;
+	Response objInput=null;
 	protected static final Logger logger = LoggerFactory.getLogger(RangerAssist.class);
 
 
-	public static void main(String[] args) {
+	public RangerAssist(Response objInput) {
+		this.objInput=objInput;
+	}
+	
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		//RangerAssist objAssist=new RangerAssist();
+		try {
+			logger.info("Establishing Connection to HDFS");
+			this.conn = this.connect(objInput);
 
-		Timer timer = new Timer();
-		timer.schedule(new RangerAssist(), 0, 10000);
+			logger.info("Establishing Connection to Ranger");
+			this.rconn=this.connectr(objInput);
+
+			logger.info("Iterating the input HDFS policy checklist");
+			Iterator<HDFSCheckList> iteratorHDFSCheckList= objInput.getHdfschecklist().iterator();
+			logger.info("ForEach Input HDFS Path");
+
+			while(iteratorHDFSCheckList.hasNext())
+			{
+
+				logger.info("#############################################" );
+				HDFSCheckList objInputHDFSItem= iteratorHDFSCheckList.next();
+				String strInputPath=objInputHDFSItem.getPath();
+				logger.info("###INPUT PATH:"+strInputPath+"###" );
+				logger.info("---Get list of paths in HDFS based on the depth from input");
+
+				ArrayList<String> listHdfsDepthPaths= new ArrayList<String>();
+
+				//This does not matter if depth is 0, since its the provided directory only
+				logger.info("---HDFS listStatus for the given Depth, retrieving list of hdfs-depth-paths");
+				this.listStatusForDepth(strInputPath,Integer.parseInt(objInputHDFSItem.getDepth()),listHdfsDepthPaths);
+
+
+				//Get policy in Ranger using the resource_name from input
+				//0. Get all policies and check for the input policy name.
+				//1. Get Policy by service-name and policy-name
+				//2. Update Policy by service-name and policy-name
+				logger.info("---Get All Ranger Polices and Search for the input Policy Name");
+				String strAllPolicies=this.getAllRepositoryPolicies();
+				System.out.println(strAllPolicies);
+				List<RangerPolicyResponse> objRangerPolicies=new JsonUtils().parseRangerPolicies(strAllPolicies);
+				System.out.println(objRangerPolicies.iterator().next().getName());
+				Iterator<RangerPolicyResponse> iteratorObjRangerPolicies = objRangerPolicies.iterator();
+				boolean policyFoundInRanger=false;
+				// check if its a new Ranger Policy
+				while(iteratorObjRangerPolicies.hasNext())
+				{
+					RangerPolicyResponse objRangerPolicy=iteratorObjRangerPolicies.next();
+					if(objRangerPolicy.getName().equals(objInputHDFSItem.getResourceName()))
+					{
+						policyFoundInRanger=true;
+						break; 
+					}
+				}// end of check on a new Ranger Policy
+
+				//If policy is not found create a new policy and break
+				if (policyFoundInRanger==false)
+				{
+					//Create this new Policy
+					//curl -iv -u admin:admin -d @createPolicy.json -H "Content-type:application/json" -X POST http://zulu.hdp.com:6080/service/public/v2/api/policy/
+					RangerPolicyResponse objNewRangerPolicy= new RangerPolicyResponse();
+
+					boolean isEnabled=true;
+					//private int version;
+					String strService=objInputHDFSItem.getRepositoryName();
+					String strName=objInputHDFSItem.getResourceName();
+					boolean boolNewIsAuditEnabled=true;
+					objNewRangerPolicy.setName(strName);
+					objNewRangerPolicy.setService(strService);
+					objNewRangerPolicy.setIsAuditEnabled(boolNewIsAuditEnabled);
+					objNewRangerPolicy.setIsEnabled(isEnabled);
+
+					//int policyType;
+
+
+					//PolicyItems are copied from the HDFS input list
+					objNewRangerPolicy.setPolicyItems(objInputHDFSItem.getPolicyItemList());
+
+					Resources objNewResources=new Resources();
+					objNewRangerPolicy.setResources(objNewResources);
+
+					Path objNewPath= new Path();
+					objNewPath.setIsExcludes(false);
+					objNewPath.setIsRecursive(false);
+					objNewPath.setValues(listHdfsDepthPaths);
+					objNewRangerPolicy.getResources().setPath(objNewPath);
+
+					this.createPolicy(objNewRangerPolicy); 
+
+					//created a policy for this inputCheckList item. Now go to the next element.
+					continue;
+
+				}
+
+				// Policy is found in Ranger. Continue and edit this.
+				logger.info("---Get Ranger Policy by service-name and policy-name");
+				String strRangerPolicyName=objInputHDFSItem.getResourceName();
+				String strRangerPolicy =this.getRangerPolicyByName(strRangerPolicyName);
+				RangerPolicyResponse objRangerPol=new JsonUtils().parseRangerPolicy(strRangerPolicy);
+				ArrayList<String> listRangerPolPaths= new ArrayList<String>();
+				listRangerPolPaths=objRangerPol.getResources().getPath().getValues();
+				logger.info("---ForEach hdfs-depth-path");
+				for (String strHdfsDepthPath:listHdfsDepthPaths)
+				{
+					logger.info("-----Search ranger-policy-paths for hdfs-depth-path");
+					if(listRangerPolPaths.contains(strHdfsDepthPath))
+					{
+						//path found
+						logger.info("*****DEPTH PATH:<"+strHdfsDepthPath+"> FOUND! in Ranger Policy*****");
+
+					}
+					else
+					{
+						//path not found
+						logger.info("*****DEPTH PATH:<"+strHdfsDepthPath+"> NOT FOUND in Ranger Policy*****");
+						logger.info("-----Add this depth path and Update Ranger Policy");
+						this.addAndUpdatePolicy(objInputHDFSItem,strHdfsDepthPath,objRangerPol);
+					}
+
+				}
+				//Delete path from Ranger if allowRangerPathDelete is true and 
+				//Ranger policy has a path not present in HDFS (nothing to do with Depth paths).
+				//TODO: Check to find a way to better organize delete. Maybe functionalize add and delete.
+				logger.info("### TRY DELETING UNUSED PATHS IN POLICY: "+objInputHDFSItem.getResourceName()+" : "+ objInputHDFSItem.getAllowRangerPathDelete()+ "###" );
+				if(objInputHDFSItem.getAllowRangerPathDelete().equalsIgnoreCase("true"))
+				{
+					//refresh the Policy as new paths may have got added
+					objRangerPol=new JsonUtils().parseRangerPolicy(this.getRangerPolicyByName(strRangerPolicyName));
+					listRangerPolPaths=objRangerPol.getResources().getPath().getValues();
+					logger.info("---ForEach Ranger-Policy-Path");
+					for(Iterator<String> iteratorListRangerPolPaths = listRangerPolPaths.iterator();iteratorListRangerPolPaths.hasNext(); iteratorListRangerPolPaths.next())
+					{
+						if(listRangerPolPaths.size()==1)
+						{
+							logger.warn("-----Last Path in Policy: Unable to delete Path from Ranger Policy.");
+						}
+						else
+						{
+							String strRangerPolicyPath=iteratorListRangerPolPaths.next();
+							logger.info("-----Get HDFS Content Summary to check if the Ranger-Policy-Path exists: "+strRangerPolicyPath);
+							try
+							{
+								logger.info(this.conn.getContentSummary(strRangerPolicyPath.replaceFirst("/", "")));
+							}
+							catch(FileNotFoundException fe)
+							{
+								logger.info("-----HDFS path NOT FOUND!!:"+strRangerPolicyPath);
+								logger.info("-----Removing the Path from the this Ranger Policy List");
+								iteratorListRangerPolPaths.remove();
+								logger.info("-----Updating Ranger Policy with the updated List");
+								this.rconn.updatePolicyByName(objRangerPol.getName(), new Gson().toJson(objRangerPol));
+								//fe.printStackTrace();
+
+							}
+						}
+					}
+
+				}//VERIFY HDFS PATH & DELETE
+
+			}//FOR EACH INPUT HDFS PATH
+
+
+		} catch(FileNotFoundException e)
+		{
+			System.out.println(e.getMessage());
+			System.out.println("Verify your URL for HDFS, path is not present");
+			e.printStackTrace();
+		}
+		catch (Exception e)
+		{	
+			e.printStackTrace();
+		}
+
 
 	}
 	//recursiveList("/tenant",1)
@@ -43,37 +212,33 @@ public class RangerAssist extends TimerTask {
 		HDFSListStatusResponse objHdfsLs=new JsonUtils().parseHDFSList(strHdfsLsContent);
 		Iterator<FileStatus> iteratorFileStatus=objHdfsLs.getFileStatuses().getFileStatus().iterator();
 
-		/*		if (intDepth==0)
-		{
-			System.out.println(intDepth+"::"+conn.listStatus(strPath));
-			//HDFSListStatusResponse objHdfsLs=new JsonUtils().parseHDFSList(new JsonUtils().prettyPrint(conn.listStatus(strPath)));
-			//Iterator<FileStatus> iteratorFileStatus = objHdfsLs.getFileStatuses().getFileStatus().iterator();
-			while(iteratorFileStatus.hasNext())
-			{
-				FileStatus objFileStatus=iteratorFileStatus.next();
-				if(objFileStatus.getType().equals("DIRECTORY"))
-				{
-				System.out.println("/"+strPath+"/"+objFileStatus.getPathSuffix());
-				listPaths.add("/"+strPath+"/"+objFileStatus.getPathSuffix());
-				}
-			}
-			//System.out.println(objHdfsLs.getFileStatuses().getFileStatus().iterator().next().getPathSuffix());
-		}*/
-
+		//iterate for all the Files returned inside the list status (Might not be needed for depth 0)
+		//For every FileStatus Returned- based on depth, iterate for paths
 		while(iteratorFileStatus.hasNext())
 		{
 			FileStatus objFileStatus=iteratorFileStatus.next();
 			if (intDepth==0)
 			{
+				System.out.println(intDepth+"::"+conn.getFileStatus(strPath));
+				String strHDFSRootPathStatus=new JsonUtils().prettyPrint(conn.getFileStatus(strPath));
+				FileStatusResponse objRootStatus=new JsonUtils().parseHDFSFileStatus(strHDFSRootPathStatus);
+				if(objRootStatus.getFileStatus().getType().equals("DIRECTORY"))
+				{
+					System.out.println("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
+					listPaths.add("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
+					//break from the loop. Don't want that dir to be added n times
+					break;
+				}
+			}
+			else if (intDepth==1)
+			{
 				System.out.println(intDepth+"::"+conn.listStatus(strPath));
-
-
 				if(objFileStatus.getType().equals("DIRECTORY"))
 				{
 					System.out.println("/"+strPath+"/"+objFileStatus.getPathSuffix());
 					listPaths.add("/"+strPath+"/"+objFileStatus.getPathSuffix());
 				}
-
+				//return;
 				//System.out.println(objHdfsLs.getFileStatuses().getFileStatus().iterator().next().getPathSuffix());
 			}
 			else
@@ -142,8 +307,8 @@ public class RangerAssist extends TimerTask {
 		System.out.println(json);
 	}
 	private void findPathInRepository(String path, String repo) throws MalformedURLException, IOException, AuthenticationException {
-		System.out.println(new JsonUtils().prettyPrint(rconn.getAllRepositoryPolicies(repo)));
-		rconn.getAllRepositoryPolicies(repo);
+		System.out.println(new JsonUtils().prettyPrint(rconn.getAllRepositoryPolicies()));
+		rconn.getAllRepositoryPolicies();
 
 	}
 	private  HashMap<String, List<String>> listAllInputPaths(Response objInput) throws MalformedURLException, IOException, AuthenticationException {
@@ -162,136 +327,63 @@ public class RangerAssist extends TimerTask {
 		return strRangerPolicyContent;
 
 	}
-	private void addAndUpdatePolicy(String path, RangerPolicyResponse objRangerPol) throws MalformedURLException, IOException, AuthenticationException
+	private String getAllRepositoryPolicies() throws MalformedURLException, IOException, AuthenticationException
+	{
+		String strRangerPoliciesContent=new JsonUtils().prettyPrint(rconn.getAllRepositoryPolicies());
+		return strRangerPoliciesContent;
+
+	}
+	private void createPolicy(RangerPolicyResponse objRangerPol) throws MalformedURLException, IOException, AuthenticationException
+	{
+		//print the current state of policy
+		Gson gson = new Gson();
+		rconn.createPolicy(gson.toJson(objRangerPol));
+	}
+	private void addAndUpdatePolicy(HDFSCheckList objInputHDFSItem,String path, RangerPolicyResponse objRangerPol) throws MalformedURLException, IOException, AuthenticationException
 	{
 		//print the current state of policy
 		Gson gson = new Gson();
 		objRangerPol.getResources().getPath().getValues().add(path);
+		//iterate acl list in objRangerPol vs acl in objInputHDFSItem
+		Iterator<PolicyItem> iteratorInputPolicyItemList = objInputHDFSItem.getPolicyItemList().iterator();
+		Iterator<PolicyItem> iteratorRangerPolicyItemList =null;
+		//Iterate over the Input Policy ACL list
+		while(iteratorInputPolicyItemList.hasNext())
+		{
+			PolicyItem objInputPolicyItem = iteratorInputPolicyItemList.next();
+			boolean boolInputPolicyFound=false;
+			//iterate over the Ranger Policy ACL list
+			iteratorRangerPolicyItemList = objRangerPol.getPolicyItems().iterator();
+			while(iteratorRangerPolicyItemList.hasNext())
+			{
+
+				PolicyItem objRangerPolicyItem= iteratorRangerPolicyItemList.next();
+				//Compare InputPolicy ACL list with Ranger ACL list
+				// if RangerPolicy Contains an ACL with ALL users/groups in InputPolicy.. then its ignores the InputPolicyItem
+				//   even if the RangerPolicy ACL has additional groups/users
+				//   w.r.t "access" in PolicyItem. Order is important.
+				if(objRangerPolicyItem.equals(objInputPolicyItem))
+				{
+					System.out.println("Ranger policy found");
+					boolInputPolicyFound=true;
+					break;
+
+				}
+				else
+				{
+					System.out.println("Ranger policy NOT found");
+					boolInputPolicyFound=false;
+				}
+			}
+			//add inputPolicyItem if its not found in any current ranger policies
+			if(boolInputPolicyFound==false)
+				objRangerPol.getPolicyItems().add(objInputPolicyItem);
+		}
+
 		//System.out.println(gson.toJson(objRangerPol));
 		rconn.updatePolicyByName(objRangerPol.getName(), gson.toJson(objRangerPol));
 
 	}
-	@Override
-	public void run() {
-		// TODO Auto-generated method stub
-		RangerAssist objAssist=new RangerAssist();
-		JsonUtils objJutils = new JsonUtils();
-		try {
-			logger.info("###############LETS BEGIN###############");
-			logger.info("Make sure the input file nyl_ranger_policy_input.json is available with all necessary details");
-			Scanner objScanner=new Scanner(new File("nyl_ranger_policy_input.json"));
-			String strJsonInput = objScanner.useDelimiter("\\Z").next();
-			objScanner.close();
-			logger.info("Parsing the json input file");
-			Response objInput = objJutils.parseJSON(strJsonInput);
-			logger.info("fromInputJson->Environment: "+ objInput.getEnvDetails());
-
-			logger.info("Establishing Connection to HDFS");
-			objAssist.conn = objAssist.connect(objInput);
-
-			logger.info("Establishing Connection to Ranger");
-			objAssist.rconn=objAssist.connectr(objInput);
-
-			logger.info("Iterating the input HDFS policy checklist");
-			Iterator<HDFSCheckList> iteratorHDFSCheckList= objInput.getHdfschecklist().iterator();
-			logger.info("ForEach Input HDFS Path");
-			while(iteratorHDFSCheckList.hasNext())
-			{
-
-				logger.info("#############################################" );
-				HDFSCheckList objInputHDFSItem= iteratorHDFSCheckList.next();
-				String strInputPath=objInputHDFSItem.getPath();
-				logger.info("###INPUT PATH:"+strInputPath+"###" );
-				logger.info("---Get list of paths in HDFS based on the depth from input");
-
-				ArrayList<String> listHdfsDepthPaths= new ArrayList<String>();
-				logger.info("---HDFS listStatus for the given Depth, retrieving list of hdfs-depth-paths");
-				objAssist.listStatusForDepth(strInputPath,Integer.parseInt(objInputHDFSItem.getDepth()),listHdfsDepthPaths);
-
-
-				//Get policy in Ranger using the resource_name from input
-				//1. Get Policy by service-name and policy-name
-				//2. Update Policy by service-name and policy-name
-				logger.info("---Get Ranger Policy by service-name and policy-name");
-				String strRangerPolicyName=objInputHDFSItem.getResourceName();
-				RangerPolicyResponse objRangerPol=new JsonUtils().parseRangerPolicy(objAssist.getRangerPolicyByName(strRangerPolicyName));
-				ArrayList<String> listRangerPolPaths= new ArrayList<String>();
-				listRangerPolPaths=objRangerPol.getResources().getPath().getValues();
-				logger.info("---ForEach hdfs-depth-path");
-				for (String strHdfsDepthPath:listHdfsDepthPaths)
-				{
-					logger.info("-----Search ranger-policy-paths for hdfs-depth-path");
-					if(listRangerPolPaths.contains(strHdfsDepthPath))
-					{
-						//path found
-						logger.info("*****DEPTH PATH:<"+strHdfsDepthPath+"> FOUND! in Ranger Policy*****");
-
-					}
-					else
-					{
-						//path not found
-						logger.info("*****DEPTH PATH:<"+strHdfsDepthPath+"> NOT FOUND in Ranger Policy*****");
-						logger.info("-----Add this depth path and Update Ranger Policy");
-						objAssist.addAndUpdatePolicy(strHdfsDepthPath,objRangerPol);
-					}
-
-				}
-				//Delete path from Ranger if allowRangerPathDelete is true and 
-				//Ranger policy has a path not present in HDFS (nothing to do with Depth paths).
-				//TODO: Check to find a way to better organize delete. Maybe functionalize add and delete.
-				logger.info("### TRY DELETING UNUSED PATHS IN POLICY: "+objInputHDFSItem.getResourceName()+" : "+ objInputHDFSItem.getAllowRangerPathDelete()+ "###" );
-				if(objInputHDFSItem.getAllowRangerPathDelete().equalsIgnoreCase("true"))
-				{
-					//refresh the Policy as new paths may have got added
-					objRangerPol=new JsonUtils().parseRangerPolicy(objAssist.getRangerPolicyByName(strRangerPolicyName));
-					listRangerPolPaths=objRangerPol.getResources().getPath().getValues();
-					logger.info("---ForEach Ranger-Policy-Path");
-					for(Iterator<String> iteratorListRangerPolPaths = listRangerPolPaths.iterator();iteratorListRangerPolPaths.hasNext(); )
-					{
-						if(listRangerPolPaths.size()==1)
-						{
-							logger.warn("-----Last Path in Policy: Unable to delete Path from Ranger Policy.");
-						}
-						else
-						{
-							String strRangerPolicyPath=iteratorListRangerPolPaths.next();
-							logger.info("-----Get HDFS Content Summary to check if the Ranger-Policy-Path exists: "+strRangerPolicyPath);
-							try
-							{
-								logger.info(objAssist.conn.getContentSummary(strRangerPolicyPath.replaceFirst("/", "")));
-							}
-							catch(FileNotFoundException fe)
-							{
-								logger.info("-----HDFS path NOT FOUND!!:"+strRangerPolicyPath);
-								logger.info("-----Removing the Path from the this Ranger Policy List");
-								iteratorListRangerPolPaths.remove();
-								logger.info("-----Updating Ranger Policy with the updated List");
-								objAssist.rconn.updatePolicyByName(objRangerPol.getName(), new Gson().toJson(objRangerPol));
-								//fe.printStackTrace();
-
-							}
-						}
-					}
-
-				}//VERIFY HDFS PATH & DELETE
-
-			}//FOR EACH INPUT HDFS PATH
-
-
-		} catch(FileNotFoundException e)
-		{
-			System.out.println(e.getMessage());
-			System.out.println("Verify your URL for HDFS, path is not present");
-			e.printStackTrace();
-		}
-		catch (Exception e)
-		{	
-			e.printStackTrace();
-		}
-
-
-	}
-
 
 
 }

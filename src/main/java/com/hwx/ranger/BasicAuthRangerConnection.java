@@ -142,10 +142,10 @@ public class BasicAuthRangerConnection implements RangerConnection {
 		return resp;
 	}
 
-	public String getAllRepositoryPolicies(String repo)
+	public String getAllRepositoryPolicies()
 			throws MalformedURLException, IOException, AuthenticationException {
 		// TODO Auto-generated method stub
-		URL url = new URL(new URL(rangerUrl), MessageFormat.format("/service/public/v2/api/service/{0}/policy", URLUtil.encodePath(repo)));
+		URL url = new URL(new URL(rangerUrl), MessageFormat.format("/service/public/v2/api/service/{0}/policy", URLUtil.encodePath(this.repository)));
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		Base64.Encoder encoder = Base64.getEncoder();
 		String encodedString = encoder.encodeToString((principal+":"+password).getBytes(StandardCharsets.UTF_8) );
@@ -161,10 +161,29 @@ public class BasicAuthRangerConnection implements RangerConnection {
 		return resp;
 	}
 
-	public String createPolicy(String path, InputStream is)
+	public String createPolicy(String jsonContent)
 			throws MalformedURLException, IOException, AuthenticationException {
 		// TODO Auto-generated method stub
-		return null;
+		URL url = new URL(new URL(rangerUrl), URLUtil.encodePath("service/public/v2/api/policy"));
+		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+		Base64.Encoder encoder = Base64.getEncoder();
+		String encodedString = encoder.encodeToString((principal+":"+password).getBytes(StandardCharsets.UTF_8) );
+		conn.setRequestMethod("POST");
+		conn.setRequestProperty  ("Authorization", "Basic " + encodedString);
+		conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+		//conn.setUseCaches(false);
+		conn.setDoInput(true);
+		conn.setDoOutput(true);
+		//
+		OutputStreamWriter osw = new OutputStreamWriter(conn.getOutputStream());
+        osw.write(jsonContent);
+        osw.flush();
+        osw.close();
+		//
+		conn.connect();
+		String resp = result(conn, false);
+		conn.disconnect();
+		return resp;
 	}
 
 	public String updatePolicyByName(String policyName, String jsonContent) throws MalformedURLException,

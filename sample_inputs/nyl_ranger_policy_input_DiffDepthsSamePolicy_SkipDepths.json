@@ -4,8 +4,7 @@
         "hdfsURI": "http://xena.hdp.com:50070",
         "rangerURI": "http://zulu.hdp.com:6080",
         "opUsername": "admin",
-        "opPassword": "admin",
-        "repeatPeriod": 30
+        "opPassword": "admin"
     },
     "hdfschecklist": [{
         "repositoryName": "turing_hadoop",

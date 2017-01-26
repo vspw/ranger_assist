@@ -17,7 +17,7 @@ private String description;
 private String path;
 private String resourceName;
 private String repositoryName;
-private List<PermMapList> permMapList;
+private List<PolicyItem> policyItems;
 private String allowRangerPathDelete;
 
 
@@ -77,13 +77,13 @@ public void setResourceName(String resourceName) {
 }
 
 
-public List<PermMapList> getPermMapList() {
-	return permMapList;
+public List<PolicyItem> getPolicyItemList() {
+	return policyItems;
 }
 
 
-public void setPermMapList(List<PermMapList> permMapList) {
-	this.permMapList = permMapList;
+public void setPolicyItemList(List<PolicyItem> policyItemList) {
+	this.policyItems = policyItemList;
 }
 
 
@@ -115,7 +115,7 @@ public String toString() {
 	return getClass().getName() + " {\n\tdepth: " + depth + "\n\tdescription: "
 			+ description + "\n\tpath: " + path + "\n\tresourceName: "
 			+ resourceName + "\n\trepositoryName: " + repositoryName
-			+ "\n\tpermMapList: " + permMapList + "\n\tallowRangerPathDelete: " + allowRangerPathDelete
+			+ "\n\tpolicyItemList: " + policyItems + "\n\tallowRangerPathDelete: " + allowRangerPathDelete
 			+ "\n\tadditionalProperties: " + additionalProperties + "\n}";
 }
 
