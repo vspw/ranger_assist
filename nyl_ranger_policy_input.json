@@ -1,19 +1,19 @@
 {
     "envdetails": {
-        "envName": "Prod",
-        "hdfsURI": "http://xena.hdp.com:50070",
-        "rangerURI": "http://zulu.hdp.com:6080",
-        "opUsername": "admin",
-        "opPassword": "admin",
+        "envName": "Tech",
+        "hdfsURI": " http://nn.nodename:50070",
+        "rangerURI": "https://ranger.nodename.com",
+        "opUsername": "username",
+        "opPassword": "********",
         "repeatPeriod": 30
     },
     "hdfschecklist": [{
-        "repositoryName": "turing_hadoop",
+        "repositoryName": "tech_hadoop",
         "depth": "0",
         "description": "checks new directories under temp_2",
         "resourceName": "D0Users: List_Contents RE-NR",
         "path": "tenant",
-        "allowRangerPathDelete": "true",
+        "allowRangerPathDelete": "false",
         "policyItems": [{
             "accesses": [{
                 "type": "read",
@@ -26,7 +26,7 @@
                 "isAllowed": true
             }],
             "users": [],
-            "groups": ["users", "public"],
+            "groups": ["hdpdev-user", "ambari-qa"],
             "conditions": [],
             "delegateAdmin": false
         }, {
@@ -37,13 +37,13 @@
                 "type": "execute",
                 "isAllowed": true
             }],
-            "users": ["keyadmin"],
-            "groups": ["public", "users"],
+            "users": ["t93ki8h"],
+            "groups": ["ambari-qa", "hdpdev-user"],
             "conditions": [],
             "delegateAdmin": true
         }]
     }, {
-        "repositoryName": "turing_hadoop",
+        "repositoryName": "tech_hadoop",
         "depth": "1",
         "description": "checks new directories under temp_2",
         "resourceName": "D1Users: List_Contents RE-NR",
@@ -58,7 +58,7 @@
                 "isAllowed": true
             }],
             "users": [],
-            "groups": ["users"],
+            "groups": ["hdpdev-user"],
             "conditions": [],
             "delegateAdmin": false
         }, {
@@ -72,13 +72,13 @@
                 "type": "execute",
                 "isAllowed": true
             }],
-            "users": ["keyadmin"],
-            "groups": ["public", "users"],
+            "users": ["t93ki8h"],
+            "groups": ["ambari-qa", "hdpdev-user"],
             "conditions": [],
             "delegateAdmin": true
         }]
     }, {
-        "repositoryName": "turing_hadoop",
+        "repositoryName": "tech_hadoop",
         "depth": "2",
         "description": "checks new directories under temp_2",
         "resourceName": "D1Users: List_Contents RE-NR",
@@ -104,14 +104,14 @@
                 "type": "execute",
                 "isAllowed": true
             }],
-            "users": ["keyadmin"],
-            "groups": ["public", "users"],
+            "users": ["t93ki8h"],
+            "groups": ["ambari-qa", "hdpdev-user"],
             "conditions": [],
             "delegateAdmin": true
         }]
     },
     {
-        "repositoryName": "turing_hadoop",
+        "repositoryName": "tech_hadoop",
         "depth": "3",
         "description": "checks new directories under temp_2",
         "resourceName": "D0Users: List_Contents RE-NR",
@@ -126,7 +126,7 @@
                 "isAllowed": true
             }],
             "users": [],
-            "groups": ["users"],
+            "groups": ["hdpdev-user"],
             "conditions": [],
             "delegateAdmin": false
         }, {
@@ -140,8 +140,8 @@
                 "type": "execute",
                 "isAllowed": true
             }],
-            "users": ["keyadmin"],
-            "groups": ["public", "users"],
+            "users": ["t93ki8h"],
+            "groups": ["ambari-qa", "hdpdev-user"],
             "conditions": [],
             "delegateAdmin": true
         }]

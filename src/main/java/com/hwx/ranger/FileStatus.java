@@ -4,17 +4,17 @@ package com.hwx.ranger;
 public class FileStatus {
 
 
-private Integer accessTime;
+private Long accessTime;
 
-private Integer blockSize;
+private Long blockSize;
 
-private Integer childrenNum;
+private Long childrenNum;
 
-private Integer fileId;
+private Long fileId;
 
 private String group;
 
-private Integer length;
+private Long length;
 
 private Long modificationTime;
 
@@ -24,41 +24,41 @@ private String pathSuffix;
 
 private String permission;
 
-private Integer replication;
+private Long replication;
 
-private Integer storagePolicy;
+private Long storagePolicy;
 
 private String type;
 
-public Integer getAccessTime() {
+public Long getAccessTime() {
 return accessTime;
 }
 
-public void setAccessTime(Integer accessTime) {
+public void setAccessTime(Long accessTime) {
 this.accessTime = accessTime;
 }
 
-public Integer getBlockSize() {
+public Long getBlockSize() {
 return blockSize;
 }
 
-public void setBlockSize(Integer blockSize) {
+public void setBlockSize(Long blockSize) {
 this.blockSize = blockSize;
 }
 
-public Integer getChildrenNum() {
+public Long getChildrenNum() {
 return childrenNum;
 }
 
-public void setChildrenNum(Integer childrenNum) {
+public void setChildrenNum(Long childrenNum) {
 this.childrenNum = childrenNum;
 }
 
-public Integer getFileId() {
+public Long getFileId() {
 return fileId;
 }
 
-public void setFileId(Integer fileId) {
+public void setFileId(Long fileId) {
 this.fileId = fileId;
 }
 
@@ -70,11 +70,11 @@ public void setGroup(String group) {
 this.group = group;
 }
 
-public Integer getLength() {
+public Long getLength() {
 return length;
 }
 
-public void setLength(Integer length) {
+public void setLength(Long length) {
 this.length = length;
 }
 
@@ -110,19 +110,19 @@ public void setPermission(String permission) {
 this.permission = permission;
 }
 
-public Integer getReplication() {
+public Long getReplication() {
 return replication;
 }
 
-public void setReplication(Integer replication) {
+public void setReplication(Long replication) {
 this.replication = replication;
 }
 
-public Integer getStoragePolicy() {
+public Long getStoragePolicy() {
 return storagePolicy;
 }
 
-public void setStoragePolicy(Integer storagePolicy) {
+public void setStoragePolicy(Long storagePolicy) {
 this.storagePolicy = storagePolicy;
 }
 

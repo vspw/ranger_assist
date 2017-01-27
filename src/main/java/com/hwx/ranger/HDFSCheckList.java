@@ -17,6 +17,7 @@ private String description;
 private String path;
 private String resourceName;
 private String repositoryName;
+private boolean isEnabled;
 private List<PolicyItem> policyItems;
 private String allowRangerPathDelete;
 
@@ -128,6 +129,16 @@ public String getAllowRangerPathDelete() {
 
 public void setAllowRangerPathDelete(String allowRangerPathDelete) {
 	this.allowRangerPathDelete = allowRangerPathDelete;
+}
+
+
+public boolean isEnabled() {
+	return isEnabled;
+}
+
+
+public void setEnabled(boolean isEnabled) {
+	this.isEnabled = isEnabled;
 }
 
 

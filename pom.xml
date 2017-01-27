@@ -33,8 +33,9 @@
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-core</artifactId>
-			<version>0.20.2</version>
+			<version>2.6.0-mr1-cdh5.4.2.1</version>
 		</dependency>
+
 		<!-- https://mvnrepository.com/artifact/commons-lang/commons-lang -->
 		<dependency>
 			<groupId>commons-lang</groupId>
@@ -163,9 +164,9 @@
 			</snapshots>
 		</repository>
 		<repository>
-			<id>sprint.releases.repo</id>
-			<name>Alfresco Releases Repository</name>
-			<url>https://artifacts.alfresco.com/nexus/content/repositories/public/</url>
+			<id>spring.releases.repo</id>
+			<name>Spring Releases Repository</name>
+			<url>http://repo.spring.io/plugins-release/</url>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>

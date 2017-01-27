@@ -38,7 +38,7 @@ class RangerAssist extends TimerTask {
 		//RangerAssist objAssist=new RangerAssist();
 		try {
 			logger.info("Establishing Connection to HDFS");
-			this.conn = this.connect(objInput);
+			this.conn = this.connectSecure(objInput);
 
 			logger.info("Establishing Connection to Ranger");
 			this.rconn=this.connectr(objInput);
@@ -69,9 +69,9 @@ class RangerAssist extends TimerTask {
 				//2. Update Policy by service-name and policy-name
 				logger.info("---Get All Ranger Polices and Search for the input Policy Name");
 				String strAllPolicies=this.getAllRepositoryPolicies();
-				System.out.println(strAllPolicies);
+				logger.debug(strAllPolicies);
 				List<RangerPolicyResponse> objRangerPolicies=new JsonUtils().parseRangerPolicies(strAllPolicies);
-				System.out.println(objRangerPolicies.iterator().next().getName());
+				logger.debug(objRangerPolicies.iterator().next().getName());
 				Iterator<RangerPolicyResponse> iteratorObjRangerPolicies = objRangerPolicies.iterator();
 				boolean policyFoundInRanger=false;
 				// check if its a new Ranger Policy
@@ -92,15 +92,11 @@ class RangerAssist extends TimerTask {
 					//curl -iv -u admin:admin -d @createPolicy.json -H "Content-type:application/json" -X POST http://zulu.hdp.com:6080/service/public/v2/api/policy/
 					RangerPolicyResponse objNewRangerPolicy= new RangerPolicyResponse();
 
-					boolean isEnabled=true;
-					//private int version;
-					String strService=objInputHDFSItem.getRepositoryName();
-					String strName=objInputHDFSItem.getResourceName();
 					boolean boolNewIsAuditEnabled=true;
-					objNewRangerPolicy.setName(strName);
-					objNewRangerPolicy.setService(strService);
+					objNewRangerPolicy.setName(objInputHDFSItem.getResourceName());
+					objNewRangerPolicy.setService(objInputHDFSItem.getRepositoryName());
 					objNewRangerPolicy.setIsAuditEnabled(boolNewIsAuditEnabled);
-					objNewRangerPolicy.setIsEnabled(isEnabled);
+					objNewRangerPolicy.setIsEnabled(objInputHDFSItem.isEnabled());
 
 					//int policyType;
 
@@ -159,12 +155,15 @@ class RangerAssist extends TimerTask {
 					//refresh the Policy as new paths may have got added
 					objRangerPol=new JsonUtils().parseRangerPolicy(this.getRangerPolicyByName(strRangerPolicyName));
 					listRangerPolPaths=objRangerPol.getResources().getPath().getValues();
+					
 					logger.info("---ForEach Ranger-Policy-Path");
-					for(Iterator<String> iteratorListRangerPolPaths = listRangerPolPaths.iterator();iteratorListRangerPolPaths.hasNext(); iteratorListRangerPolPaths.next())
+					Iterator<String> iteratorListRangerPolPaths = listRangerPolPaths.iterator();
+					while(iteratorListRangerPolPaths.hasNext())
 					{
 						if(listRangerPolPaths.size()==1)
 						{
 							logger.warn("-----Last Path in Policy: Unable to delete Path from Ranger Policy.");
+							iteratorListRangerPolPaths.next();
 						}
 						else
 						{
@@ -194,8 +193,8 @@ class RangerAssist extends TimerTask {
 
 		} catch(FileNotFoundException e)
 		{
-			System.out.println(e.getMessage());
-			System.out.println("Verify your URL for HDFS, path is not present");
+			logger.error(e.getMessage());
+			logger.error("Verify your URL for HDFS, path is not present");
 			e.printStackTrace();
 		}
 		catch (Exception e)
@@ -219,12 +218,12 @@ class RangerAssist extends TimerTask {
 			FileStatus objFileStatus=iteratorFileStatus.next();
 			if (intDepth==0)
 			{
-				System.out.println(intDepth+"::"+conn.getFileStatus(strPath));
+				logger.debug(intDepth+"::"+conn.getFileStatus(strPath));
 				String strHDFSRootPathStatus=new JsonUtils().prettyPrint(conn.getFileStatus(strPath));
 				FileStatusResponse objRootStatus=new JsonUtils().parseHDFSFileStatus(strHDFSRootPathStatus);
 				if(objRootStatus.getFileStatus().getType().equals("DIRECTORY"))
 				{
-					System.out.println("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
+					logger.debug("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
 					listPaths.add("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
 					//break from the loop. Don't want that dir to be added n times
 					break;
@@ -232,10 +231,10 @@ class RangerAssist extends TimerTask {
 			}
 			else if (intDepth==1)
 			{
-				System.out.println(intDepth+"::"+conn.listStatus(strPath));
+				logger.debug(intDepth+"::"+conn.listStatus(strPath));
 				if(objFileStatus.getType().equals("DIRECTORY"))
 				{
-					System.out.println("/"+strPath+"/"+objFileStatus.getPathSuffix());
+					logger.debug("/"+strPath+"/"+objFileStatus.getPathSuffix());
 					listPaths.add("/"+strPath+"/"+objFileStatus.getPathSuffix());
 				}
 				//return;
@@ -281,33 +280,33 @@ class RangerAssist extends TimerTask {
 	private void listPolicyById(String id) throws MalformedURLException, IOException, AuthenticationException {
 		String jsonResp = rconn.getPolicybyId(id);
 		JsonElement jelement = new JsonParser().parse(jsonResp);
-		System.out.println("Result: "+ jsonResp);
+		logger.info("Result: "+ jsonResp);
 	}
 
 	private void getPolicyByName(String policyName) throws MalformedURLException, IOException, AuthenticationException {
 		//String jsonResp = rconn.getPolicyByName(policyName);
-		System.out.println(new JsonUtils().prettyPrint(rconn.getPolicyByName(policyName)));
+		logger.info(new JsonUtils().prettyPrint(rconn.getPolicyByName(policyName)));
 	}
 	private void open(String path) throws MalformedURLException, IOException, AuthenticationException {
 		FileOutputStream os = new  FileOutputStream(new File("/tmp/downloadfromhdfs.file"));
 		String json = conn.open(path, os);
-		System.out.println(json);
+		logger.info(json);
 	}
 
 
 	private void create(String path) throws MalformedURLException, IOException, AuthenticationException {
 		FileInputStream is = new FileInputStream(new File("/tmp/downloadfromhdfs.file"));
 		String json = conn.create(path, is);
-		System.out.println(json);
+		logger.info(json);
 	}
 
 
 	private void delete(String path) throws MalformedURLException, IOException, AuthenticationException {
 		String json = conn.delete(path);
-		System.out.println(json);
+		logger.info(json);
 	}
 	private void findPathInRepository(String path, String repo) throws MalformedURLException, IOException, AuthenticationException {
-		System.out.println(new JsonUtils().prettyPrint(rconn.getAllRepositoryPolicies()));
+		logger.debug(new JsonUtils().prettyPrint(rconn.getAllRepositoryPolicies()));
 		rconn.getAllRepositoryPolicies();
 
 	}
@@ -364,14 +363,14 @@ class RangerAssist extends TimerTask {
 				//   w.r.t "access" in PolicyItem. Order is important.
 				if(objRangerPolicyItem.equals(objInputPolicyItem))
 				{
-					System.out.println("Ranger policy found");
+					logger.info("Ranger policy found");
 					boolInputPolicyFound=true;
 					break;
 
 				}
 				else
 				{
-					System.out.println("Ranger policy NOT found");
+					logger.info("Ranger policy NOT found");
 					boolInputPolicyFound=false;
 				}
 			}

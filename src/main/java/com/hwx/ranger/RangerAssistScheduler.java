@@ -16,8 +16,8 @@ public class RangerAssistScheduler {
 
 		JsonUtils objJutils = new JsonUtils();
 		logger.info("###############LETS BEGIN###############");
-		logger.info("Make sure the input file nyl_ranger_policy_input.json is available with all necessary details");
-		Scanner objScanner=new Scanner(new File("nyl_ranger_policy_input.json"));
+		logger.info("Make sure pass the input json file path with all necessary details");
+		Scanner objScanner=new Scanner(new File(args[0]));
 		String strJsonInput = objScanner.useDelimiter("\\Z").next();
 		objScanner.close();
 		logger.info("Parsing the json input file");

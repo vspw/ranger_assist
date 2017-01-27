@@ -189,7 +189,9 @@ public class BasicAuthRangerConnection implements RangerConnection {
 	public String updatePolicyByName(String policyName, String jsonContent) throws MalformedURLException,
 			IOException, AuthenticationException {
 		// TODO Auto-generated method stub
+		logger.info(jsonContent);
 		URL url = new URL(new URL(rangerUrl), MessageFormat.format("/service/public/v2/api/service/{0}/policy/{1}", URLUtil.encodePath(repository),URLUtil.encodePath(policyName)));
+		logger.info(url.toString());
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		Base64.Encoder encoder = Base64.getEncoder();
 		String encodedString = encoder.encodeToString((principal+":"+password).getBytes(StandardCharsets.UTF_8) );
