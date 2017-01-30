@@ -1,6 +1,8 @@
 package com.hwx.ranger;
 
 import java.io.File;
+import java.net.URI;
+import java.nio.file.Paths;
 import java.util.Scanner;
 import java.util.Timer;
 
@@ -24,6 +26,13 @@ public class RangerAssistScheduler {
 		Response objInput = objJutils.parseJSON(strJsonInput);
 		logger.info("fromInputJson->Environment: "+ objInput.getEnvDetails());
 
+        //refer the keypass from the keystore
+        URI uri1 =URI.create(objInput.getEnvDetails().getOpKeyStoreFile());
+        java.nio.file.Path path1=Paths.get(uri1);
+        SecretKeyUtil keyUtils= new SecretKeyUtil(path1, objInput.getEnvDetails().getOpKeyStorePassword().toCharArray(),true);
+        String varSafePW=new String(keyUtils.retrieveEntryPassword(objInput.getEnvDetails().getOpKeyAlias()));
+        //
+        objInput.getEnvDetails().setOpPassword(varSafePW);
 		Timer timer = new Timer();
 		timer.schedule(new RangerAssist(objInput), 0, objInput.getEnvDetails().getRepeatPeriod()*1000);
 		}

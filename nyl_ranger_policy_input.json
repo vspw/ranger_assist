@@ -1,14 +1,17 @@
 {
     "envdetails": {
         "envName": "Tech",
-        "hdfsURI": " http://nn.nodename:50070",
-        "rangerURI": "https://ranger.nodename.com",
-        "opUsername": "username",
-        "opPassword": "********",
+        "hdfsURI": "http://xena.hdp.com:50070",
+        "rangerURI": "http://zulu.hdp.com:6080",
+        "opUsername": "admin",
+        "opPassword": "admin",
+        "opKeyStoreFile": "file:///Users/venkata/Documents/HWProjects/NYL/ranger/rest_eg/my_keystore.jceks",
+        "opKeyAlias": "hadoop",
+        "opKeyStorePassword": "hadoop1234",
         "repeatPeriod": 30
     },
     "hdfschecklist": [{
-        "repositoryName": "tech_hadoop",
+        "repositoryName": "turing_hadoop",
         "depth": "0",
         "description": "checks new directories under temp_2",
         "resourceName": "D0Users: List_Contents RE-NR",
@@ -43,7 +46,7 @@
             "delegateAdmin": true
         }]
     }, {
-        "repositoryName": "tech_hadoop",
+        "repositoryName": "turing_hadoop",
         "depth": "1",
         "description": "checks new directories under temp_2",
         "resourceName": "D1Users: List_Contents RE-NR",
@@ -78,7 +81,7 @@
             "delegateAdmin": true
         }]
     }, {
-        "repositoryName": "tech_hadoop",
+        "repositoryName": "turing_hadoop",
         "depth": "2",
         "description": "checks new directories under temp_2",
         "resourceName": "D1Users: List_Contents RE-NR",
@@ -111,7 +114,7 @@
         }]
     },
     {
-        "repositoryName": "tech_hadoop",
+        "repositoryName": "turing_hadoop",
         "depth": "3",
         "description": "checks new directories under temp_2",
         "resourceName": "D0Users: List_Contents RE-NR",

@@ -14,6 +14,9 @@ private String rangerURI;
 private String opUsername;
 private String opPassword;
 private int repeatPeriod;
+private String opKeyStoreFile;
+private String opKeyAlias;
+private String opKeyStorePassword;
 
 private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
@@ -100,6 +103,36 @@ public int getRepeatPeriod() {
 
 public void setRepeatPeriod(int repeatPeriod) {
 	this.repeatPeriod = repeatPeriod;
+}
+
+
+public String getOpKeyStoreFile() {
+	return opKeyStoreFile;
+}
+
+
+public void setOpKeyStoreFile(String opKeyStoreFile) {
+	this.opKeyStoreFile = opKeyStoreFile;
+}
+
+
+public String getOpKeyStorePassword() {
+	return opKeyStorePassword;
+}
+
+
+public void setOpKeyStorePassword(String opKeyStorePassword) {
+	this.opKeyStorePassword = opKeyStorePassword;
+}
+
+
+public String getOpKeyAlias() {
+	return opKeyAlias;
+}
+
+
+public void setOpKeyAlias(String opKeyAlias) {
+	this.opKeyAlias = opKeyAlias;
 }
 
 }
