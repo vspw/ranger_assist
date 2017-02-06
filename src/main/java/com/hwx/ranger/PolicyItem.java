@@ -4,6 +4,16 @@ import java.util.List;
 
 public class PolicyItem {
 
+/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "PolicyItem [accesses=" + accesses + ", users=" + users
+				+ ", groups=" + groups + ", conditions=" + conditions
+				+ ", delegateAdmin=" + delegateAdmin + "]";
+	}
+
 private List<Access> accesses = null;
 private List<String> users = null;
 private List<String> groups = null;

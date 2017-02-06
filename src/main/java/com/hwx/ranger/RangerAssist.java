@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Scanner;
 import java.util.TimerTask;
 
 import org.apache.hadoop.security.authentication.client.AuthenticationException;
@@ -27,15 +26,12 @@ class RangerAssist extends TimerTask {
 	Response objInput=null;
 	protected static final Logger logger = LoggerFactory.getLogger(RangerAssist.class);
 
-
 	public RangerAssist(Response objInput) {
 		this.objInput=objInput;
 	}
 	
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
-		//RangerAssist objAssist=new RangerAssist();
 		try {
 			logger.info("Establishing Connection to HDFS");
 			this.conn = this.connectSecure(objInput);
@@ -67,11 +63,13 @@ class RangerAssist extends TimerTask {
 				//0. Get all policies and check for the input policy name.
 				//1. Get Policy by service-name and policy-name
 				//2. Update Policy by service-name and policy-name
-				logger.info("---Get All Ranger Polices and Search for the input Policy Name");
+				logger.info("---Get All Existing Ranger Polices");
 				String strAllPolicies=this.getAllRepositoryPolicies();
 				logger.debug(strAllPolicies);
 				List<RangerPolicyResponse> objRangerPolicies=new JsonUtils().parseRangerPolicies(strAllPolicies);
 				logger.debug(objRangerPolicies.iterator().next().getName());
+				
+				logger.info("---Check if we need a NEW ranger policy");
 				Iterator<RangerPolicyResponse> iteratorObjRangerPolicies = objRangerPolicies.iterator();
 				boolean policyFoundInRanger=false;
 				// check if its a new Ranger Policy
@@ -80,6 +78,7 @@ class RangerAssist extends TimerTask {
 					RangerPolicyResponse objRangerPolicy=iteratorObjRangerPolicies.next();
 					if(objRangerPolicy.getName().equals(objInputHDFSItem.getResourceName()))
 					{
+						logger.info("-----Ranger Policy with InputResourceName: "+objInputHDFSItem.getResourceName()+" found");
 						policyFoundInRanger=true;
 						break; 
 					}
@@ -88,18 +87,14 @@ class RangerAssist extends TimerTask {
 				//If policy is not found create a new policy and break
 				if (policyFoundInRanger==false)
 				{
-					//Create this new Policy
+					logger.info("---Current HDFS Checklist Policy: "+objInputHDFSItem.getResourceName()+" is NOT found in Ranger. CREATING a new Ranger Policy");
 					//curl -iv -u admin:admin -d @createPolicy.json -H "Content-type:application/json" -X POST http://zulu.hdp.com:6080/service/public/v2/api/policy/
 					RangerPolicyResponse objNewRangerPolicy= new RangerPolicyResponse();
-
 					boolean boolNewIsAuditEnabled=true;
 					objNewRangerPolicy.setName(objInputHDFSItem.getResourceName());
 					objNewRangerPolicy.setService(objInputHDFSItem.getRepositoryName());
 					objNewRangerPolicy.setIsAuditEnabled(boolNewIsAuditEnabled);
 					objNewRangerPolicy.setIsEnabled(objInputHDFSItem.isEnabled());
-
-					//int policyType;
-
 
 					//PolicyItems are copied from the HDFS input list
 					objNewRangerPolicy.setPolicyItems(objInputHDFSItem.getPolicyItemList());
@@ -112,15 +107,13 @@ class RangerAssist extends TimerTask {
 					objNewPath.setIsRecursive(false);
 					objNewPath.setValues(listHdfsDepthPaths);
 					objNewRangerPolicy.getResources().setPath(objNewPath);
-
 					this.createPolicy(objNewRangerPolicy); 
-
 					//created a policy for this inputCheckList item. Now go to the next element.
 					continue;
-
+					//delete unused paths is ignored while policy creation.. should take effect on existing policies.
 				}
 
-				// Policy is found in Ranger. Continue and edit this.
+				logger.info("---Policy is Found in Ranger. Continue and edit this.");
 				logger.info("---Get Ranger Policy by service-name and policy-name");
 				String strRangerPolicyName=objInputHDFSItem.getResourceName();
 				String strRangerPolicy =this.getRangerPolicyByName(strRangerPolicyName);
@@ -216,6 +209,8 @@ class RangerAssist extends TimerTask {
 		while(iteratorFileStatus.hasNext())
 		{
 			FileStatus objFileStatus=iteratorFileStatus.next();
+			//depth 0 is for root level of depth verification only. E.g: For input paths /source or /base/test etc.
+			//the list should have only /source or /base/test respectively
 			if (intDepth==0)
 			{
 				logger.debug(intDepth+"::"+conn.getFileStatus(strPath));
@@ -229,6 +224,9 @@ class RangerAssist extends TimerTask {
 					break;
 				}
 			}
+			//depth 1 is for first level of verification only. E.g: For input paths /source or /base/test etc.
+			//the list should have only /source/A, /source/B or /base/test/case1, //base/test/case2, /base/test/case3 respectively
+			//The reason depth 0 and depth 1 are two different conditions is because of the way we get the directory contents
 			else if (intDepth==1)
 			{
 				logger.debug(intDepth+"::"+conn.listStatus(strPath));
@@ -240,6 +238,7 @@ class RangerAssist extends TimerTask {
 				//return;
 				//System.out.println(objHdfsLs.getFileStatuses().getFileStatus().iterator().next().getPathSuffix());
 			}
+			//This is for Nth level of verification only. We recursively call this function until we reach the required level
 			else
 			{
 				//FileStatus item= iteratorFileStatus.next();
@@ -250,9 +249,6 @@ class RangerAssist extends TimerTask {
 				}
 			}
 		}
-
-		//return (n<2) ? 1 : n*factorial(n-1);
-		//return res;
 
 	}
 
@@ -342,44 +338,51 @@ class RangerAssist extends TimerTask {
 	{
 		//print the current state of policy
 		Gson gson = new Gson();
+		logger.info("addAndUpdatePolicy: Adding current input path to a Ranger Policy");
+		logger.debug("addAndUpdatePolicy: inputPath: "+path);
 		objRangerPol.getResources().getPath().getValues().add(path);
 		//iterate acl list in objRangerPol vs acl in objInputHDFSItem
 		Iterator<PolicyItem> iteratorInputPolicyItemList = objInputHDFSItem.getPolicyItemList().iterator();
 		Iterator<PolicyItem> iteratorRangerPolicyItemList =null;
-		//Iterate over the Input Policy ACL list
+		logger.info("addAndUpdatePolicy: Iterate over the Input Policy ACL list");
 		while(iteratorInputPolicyItemList.hasNext())
 		{
 			PolicyItem objInputPolicyItem = iteratorInputPolicyItemList.next();
 			boolean boolInputPolicyFound=false;
 			//iterate over the Ranger Policy ACL list
 			iteratorRangerPolicyItemList = objRangerPol.getPolicyItems().iterator();
+			logger.info("---addAndUpdatePolicy: Iterate over the Input Policy ACL list");
 			while(iteratorRangerPolicyItemList.hasNext())
 			{
-
+				logger.debug("---addAndUpdatePolicy: "+gson.toJson(objInputPolicyItem.toString()));
 				PolicyItem objRangerPolicyItem= iteratorRangerPolicyItemList.next();
-				//Compare InputPolicy ACL list with Ranger ACL list
+				// Compare InputPolicy ACL list with Ranger ACL list
 				// if RangerPolicy Contains an ACL with ALL users/groups in InputPolicy.. then its ignores the InputPolicyItem
 				//   even if the RangerPolicy ACL has additional groups/users
 				//   w.r.t "access" in PolicyItem. Order is important.
 				if(objRangerPolicyItem.equals(objInputPolicyItem))
 				{
-					logger.info("Ranger policy found");
+					logger.info("-----addAndUpdatePolicy: Ranger policy found");
 					boolInputPolicyFound=true;
 					break;
-
 				}
 				else
 				{
-					logger.info("Ranger policy NOT found");
+					logger.info("-----addAndUpdatePolicy: Ranger policy NOT found");
 					boolInputPolicyFound=false;
 				}
 			}
 			//add inputPolicyItem if its not found in any current ranger policies
 			if(boolInputPolicyFound==false)
+			{
+				logger.debug("---addAndUpdatePolicy: Add inputPolicyItem if its not found in any current ranger policies");
 				objRangerPol.getPolicyItems().add(objInputPolicyItem);
+			}
 		}
 
-		//System.out.println(gson.toJson(objRangerPol));
+		
+		logger.info("addAndUpdatePolicy: Update Ranger Policy :"+objRangerPol.getName());
+		logger.debug("addAndUpdatePolicy: "+gson.toJson(objRangerPol));
 		rconn.updatePolicyByName(objRangerPol.getName(), gson.toJson(objRangerPol));
 
 	}
