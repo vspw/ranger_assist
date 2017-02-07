@@ -34,7 +34,7 @@ class RangerAssist extends TimerTask {
 	public void run() {
 		try {
 			logger.info("Establishing Connection to HDFS");
-			this.conn = this.connectSecure(objInput);
+			this.conn = this.connect(objInput);
 
 			logger.info("Establishing Connection to Ranger");
 			this.rconn=this.connectr(objInput);
@@ -48,16 +48,22 @@ class RangerAssist extends TimerTask {
 
 				logger.info("#############################################" );
 				HDFSCheckList objInputHDFSItem= iteratorHDFSCheckList.next();
-				String strInputPath=objInputHDFSItem.getPath();
-				logger.info("###INPUT PATH:"+strInputPath+"###" );
-				logger.info("---Get list of paths in HDFS based on the depth from input");
-
 				ArrayList<String> listHdfsDepthPaths= new ArrayList<String>();
+				List<String> listInputPaths=objInputHDFSItem.getPaths();
+				//String strInputPath=objInputHDFSItem.getPaths();
+				Iterator<String> iteratorInputPaths = listInputPaths.iterator();
+				
+				while(iteratorInputPaths.hasNext())
+				{
+					String strInputPath=iteratorInputPaths.next();
+					logger.info("###INPUT PATH:"+strInputPath+"###" );
+					logger.info("---Get list of paths in HDFS based on the depth from input");
 
-				//This does not matter if depth is 0, since its the provided directory only
-				logger.info("---HDFS listStatus for the given Depth, retrieving list of hdfs-depth-paths");
-				this.listStatusForDepth(strInputPath,Integer.parseInt(objInputHDFSItem.getDepth()),listHdfsDepthPaths);
-
+					//This does not matter if depth is 0, since its the provided directory only
+					logger.info("---HDFS listStatus for the given Depth, retrieving list of hdfs-depth-paths");
+					this.listStatusForDepth(strInputPath,Integer.parseInt(objInputHDFSItem.getDepth()),listHdfsDepthPaths);
+	
+				}
 
 				//Get policy in Ranger using the resource_name from input
 				//0. Get all policies and check for the input policy name.
@@ -200,7 +206,17 @@ class RangerAssist extends TimerTask {
 	//recursiveList("/tenant",1)
 	private void listStatusForDepth(String strPath,int intDepth, ArrayList<String> listPaths) throws Exception {
 
-		String strHdfsLsContent=new JsonUtils().prettyPrint(conn.listStatus(strPath));
+		String strHdfsLsContent=null;
+		try
+		{
+			strHdfsLsContent=new JsonUtils().prettyPrint(conn.listStatus(strPath));
+		}
+		catch(FileNotFoundException fe)
+		{
+			logger.warn("HDFS path NOT FOUND!!:"+strPath+" Move on to the next input path");
+			return;
+			//fe.printStackTrace();
+		}
 		HDFSListStatusResponse objHdfsLs=new JsonUtils().parseHDFSList(strHdfsLsContent);
 		Iterator<FileStatus> iteratorFileStatus=objHdfsLs.getFileStatuses().getFileStatus().iterator();
 

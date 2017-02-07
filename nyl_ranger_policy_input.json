@@ -15,7 +15,7 @@
         "depth": "0",
         "description": "checks new directories under temp_2",
         "resourceName": "D0Users: List_Contents RE-NR",
-        "path": "tenant",
+        "paths": ["tenant","tmp/entity-file-history","tmp/test1"],
         "allowRangerPathDelete": "false",
         "policyItems": [{
             "accesses": [{
@@ -50,7 +50,7 @@
         "depth": "1",
         "description": "checks new directories under temp_2",
         "resourceName": "D1Users: List_Contents RE-NR",
-        "path": "tenant",
+        "paths": ["tenant"],
         "allowRangerPathDelete": "false",
         "policyItems": [{
             "accesses": [{
@@ -85,7 +85,7 @@
         "depth": "2",
         "description": "checks new directories under temp_2",
         "resourceName": "D1Users: List_Contents RE-NR",
-        "path": "tenant",
+        "paths": ["tenant"],
         "allowRangerPathDelete": "false",
         "policyItems": [{
             "accesses": [{
@@ -118,7 +118,7 @@
         "depth": "3",
         "description": "checks new directories under temp_2",
         "resourceName": "D0Users: List_Contents RE-NR",
-        "path": "tenant",
+        "paths": ["tenant"],
         "allowRangerPathDelete": "false",
         "policyItems": [{
             "accesses": [{

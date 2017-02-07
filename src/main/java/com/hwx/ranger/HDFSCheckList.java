@@ -14,7 +14,7 @@ public class HDFSCheckList {
 
 private String depth;
 private String description;
-private String path;
+private List<String> paths;
 private String resourceName;
 private String repositoryName;
 private boolean isEnabled;
@@ -58,13 +58,13 @@ public void setDescription(String description) {
 }
 
 
-public String getPath() {
-	return path;
+public List<String> getPaths() {
+	return paths;
 }
 
 
-public void setPath(String path) {
-	this.path = path;
+public void setPaths(List<String> paths) {
+	this.paths = paths;
 }
 
 
@@ -114,7 +114,7 @@ public void setDepth(String depth) {
 @Override
 public String toString() {
 	return getClass().getName() + " {\n\tdepth: " + depth + "\n\tdescription: "
-			+ description + "\n\tpath: " + path + "\n\tresourceName: "
+			+ description + "\n\tpath: " + paths + "\n\tresourceName: "
 			+ resourceName + "\n\trepositoryName: " + repositoryName
 			+ "\n\tpolicyItemList: " + policyItems + "\n\tallowRangerPathDelete: " + allowRangerPathDelete
 			+ "\n\tadditionalProperties: " + additionalProperties + "\n}";
