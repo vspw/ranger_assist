@@ -34,7 +34,7 @@ class RangerAssist extends TimerTask {
 	public void run() {
 		try {
 			logger.info("Establishing Connection to HDFS");
-			this.conn = this.connect(objInput);
+			this.conn = this.connectSecure(objInput);
 
 			logger.info("Establishing Connection to Ranger");
 			this.rconn=this.connectr(objInput);
@@ -110,7 +110,7 @@ class RangerAssist extends TimerTask {
 
 					Path objNewPath= new Path();
 					objNewPath.setIsExcludes(false);
-					objNewPath.setIsRecursive(false);
+					objNewPath.setIsRecursive(objInputHDFSItem.isRecursive());
 					objNewPath.setValues(listHdfsDepthPaths);
 					objNewRangerPolicy.getResources().setPath(objNewPath);
 					this.createPolicy(objNewRangerPolicy); 

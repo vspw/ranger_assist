@@ -18,6 +18,7 @@ private List<String> paths;
 private String resourceName;
 private String repositoryName;
 private boolean isEnabled;
+private boolean isRecursive;
 private List<PolicyItem> policyItems;
 private String allowRangerPathDelete;
 
@@ -139,6 +140,16 @@ public boolean isEnabled() {
 
 public void setEnabled(boolean isEnabled) {
 	this.isEnabled = isEnabled;
+}
+
+
+public boolean isRecursive() {
+	return isRecursive;
+}
+
+
+public void setRecursive(boolean isRecursive) {
+	this.isRecursive = isRecursive;
 }
 
 
