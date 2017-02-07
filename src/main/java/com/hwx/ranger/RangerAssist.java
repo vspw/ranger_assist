@@ -48,9 +48,9 @@ class RangerAssist extends TimerTask {
 
 				logger.info("#############################################" );
 				HDFSCheckList objInputHDFSItem= iteratorHDFSCheckList.next();
-				ArrayList<String> listHdfsDepthPaths= new ArrayList<String>();
 				List<String> listInputPaths=objInputHDFSItem.getPaths();
-				//String strInputPath=objInputHDFSItem.getPaths();
+				ArrayList<String> listHdfsDepthPaths= new ArrayList<String>();
+
 				Iterator<String> iteratorInputPaths = listInputPaths.iterator();
 
 				while(iteratorInputPaths.hasNext())
@@ -64,6 +64,10 @@ class RangerAssist extends TimerTask {
 					this.listStatusForDepth(strInputPath,Integer.parseInt(objInputHDFSItem.getDepth()),listHdfsDepthPaths);
 
 				}
+
+				//Check if there any depth paths that are needed to be considered for the input path(s)
+				if (listHdfsDepthPaths.isEmpty())
+					break;
 
 				//Get policy in Ranger using the resource_name from input
 				//0. Get all policies and check for the input policy name.
@@ -206,68 +210,78 @@ class RangerAssist extends TimerTask {
 	//recursiveList("/tenant",1)
 	private void listStatusForDepth(String strPath,int intDepth, ArrayList<String> listPaths) throws Exception {
 
-		String strHdfsLsContent=null;
-		try
-		{
-			strHdfsLsContent=new JsonUtils().prettyPrint(conn.listStatus(strPath));
-		}
-		catch(FileNotFoundException fe)
-		{
-			logger.warn("HDFS path NOT FOUND!!:"+strPath+" Move on to the next input path");
-			return;
-			//fe.printStackTrace();
-		}
-		HDFSListStatusResponse objHdfsLs=new JsonUtils().parseHDFSList(strHdfsLsContent);
-		Iterator<FileStatus> iteratorFileStatus=objHdfsLs.getFileStatuses().getFileStatus().iterator();
 
-		//iterate for all the Files returned inside the list status (Might not be needed for depth 0)
-		//For every FileStatus Returned- based on depth, iterate for paths
-		while(iteratorFileStatus.hasNext())
+		//depth 0 is for root level of depth verification only. E.g: For input paths /source or /base/test etc.
+		//the list should have only /source or /base/test respectively
+		//If Depth=0 we don't need listStatus.
+		if (intDepth==0)
 		{
-			FileStatus objFileStatus=iteratorFileStatus.next();
-			//depth 0 is for root level of depth verification only. E.g: For input paths /source or /base/test etc.
-			//the list should have only /source or /base/test respectively
-			if (intDepth==0)
-			{
-				logger.debug(intDepth+"::"+conn.getFileStatus(strPath));
-				String strHDFSRootPathStatus=new JsonUtils().prettyPrint(conn.getFileStatus(strPath));
-				FileStatusResponse objRootStatus=new JsonUtils().parseHDFSFileStatus(strHDFSRootPathStatus);
-				if(objRootStatus.getFileStatus().getType().equals("DIRECTORY"))
-				{
-					logger.debug("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
-					listPaths.add("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
-					//break from the loop. Don't want that dir to be added n times
-					break;
-				}
+			String strHDFSRootPathStatus;
+			try{
+				strHDFSRootPathStatus=new JsonUtils().prettyPrint(conn.getFileStatus(strPath));
 			}
-			//depth 1 is for first level of verification only. E.g: For input paths /source or /base/test etc.
-			//the list should have only /source/A, /source/B or /base/test/case1, //base/test/case2, /base/test/case3 respectively
-			//The reason depth 0 and depth 1 are two different conditions is because of the way we get the directory contents
-			else if (intDepth==1)
+			catch(FileNotFoundException fe)
 			{
-				logger.debug(intDepth+"::"+conn.listStatus(strPath));
-				if(objFileStatus.getType().equals("DIRECTORY"))
-				{
-					logger.debug("/"+strPath+"/"+objFileStatus.getPathSuffix());
-					listPaths.add("/"+strPath+"/"+objFileStatus.getPathSuffix());
-				}
-				//return;
-				//System.out.println(objHdfsLs.getFileStatuses().getFileStatus().iterator().next().getPathSuffix());
+				logger.warn("listStatusForDepth: Depth"+intDepth+", HDFS path NOT FOUND:"+"/"+strPath);
+				return;
 			}
-			//This is for Nth level of verification only. We recursively call this function until we reach the required level
-			else
+			logger.debug("listStatusForDepth: Depth"+intDepth+"::"+conn.getFileStatus(strPath));
+			FileStatusResponse objRootStatus=new JsonUtils().parseHDFSFileStatus(strHDFSRootPathStatus);
+			if(objRootStatus.getFileStatus().getType().equals("DIRECTORY"))
 			{
-				//FileStatus item= iteratorFileStatus.next();
-				//int adepth=intDepth-1;
-				if(objFileStatus.getType().equals("DIRECTORY"))
+				logger.debug("listStatusForDepth: Depth"+intDepth+", Adding path: "+"/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
+				listPaths.add("/"+strPath+objRootStatus.getFileStatus().getPathSuffix());
+				return;
+			}
+		}
+		else //if depth > 0, we need listStatus to dig deeper
+		{
+			String strHdfsLsContent=null;
+			try
+			{
+				strHdfsLsContent=new JsonUtils().prettyPrint(conn.listStatus(strPath));
+			}
+			catch(FileNotFoundException fe)
+			{
+				logger.warn("listStatusForDepth: Depth"+intDepth+", HDFS path NOT FOUND:"+"/"+strPath);
+				return;
+			}
+			HDFSListStatusResponse objHdfsLs=new JsonUtils().parseHDFSList(strHdfsLsContent);
+			Iterator<FileStatus> iteratorFileStatus=objHdfsLs.getFileStatuses().getFileStatus().iterator();
+			//iterate for all the Files returned inside the list status (Might not be needed for depth 0)
+			//For every FileStatus Returned- based on depth, iterate for paths
+			while(iteratorFileStatus.hasNext())
+			{
+				FileStatus objFileStatus=iteratorFileStatus.next();
+
+
+				//depth 1 is for first level of verification only. E.g: For input paths /source or /base/test etc.
+				//the list should have only /source/A, /source/B or /base/test/case1, //base/test/case2, /base/test/case3 respectively
+				//The reason depth 0 and depth 1 are two different conditions is because of the way we get the directory contents
+				if (intDepth==1)
 				{
-					listStatusForDepth(strPath+"/"+objFileStatus.getPathSuffix(), intDepth-1,listPaths);
+					logger.debug("listStatusForDepth: Depth:"+intDepth+"::"+conn.listStatus(strPath));
+					if(objFileStatus.getType().equals("DIRECTORY"))
+					{
+						logger.debug("listStatusForDepth: Depth"+intDepth+", Adding path: "+"/"+strPath+"/"+objFileStatus.getPathSuffix());
+						listPaths.add("/"+strPath+"/"+objFileStatus.getPathSuffix());
+					}
+				}
+				//This is for Nth level of verification only. We recursively call this function until we reach the required level
+				else
+				{
+					//FileStatus item= iteratorFileStatus.next();
+					//int adepth=intDepth-1;
+					if(objFileStatus.getType().equals("DIRECTORY"))
+					{
+						logger.debug("listStatusForDepth: Depth:"+(intDepth-1)+" recursive call for path:"+strPath+"/"+objFileStatus.getPathSuffix());
+						listStatusForDepth(strPath+"/"+objFileStatus.getPathSuffix(), intDepth-1,listPaths);
+					}
 				}
 			}
 		}
 
 	}
-
 	private WebHDFSConnection connect(Response objInput) throws Exception {
 
 		conn = new PseudoWebHDFSConnection(objInput.getEnvDetails().getHdfsURI(), objInput.getEnvDetails().getOpUsername().split("@")[0], objInput.getEnvDetails().getOpPassword());
