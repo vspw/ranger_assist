@@ -29,7 +29,7 @@ class RangerAssist extends TimerTask {
 	public RangerAssist(Response objInput) {
 		this.objInput=objInput;
 	}
-	
+
 	@Override
 	public void run() {
 		try {
@@ -52,7 +52,7 @@ class RangerAssist extends TimerTask {
 				List<String> listInputPaths=objInputHDFSItem.getPaths();
 				//String strInputPath=objInputHDFSItem.getPaths();
 				Iterator<String> iteratorInputPaths = listInputPaths.iterator();
-				
+
 				while(iteratorInputPaths.hasNext())
 				{
 					String strInputPath=iteratorInputPaths.next();
@@ -62,7 +62,7 @@ class RangerAssist extends TimerTask {
 					//This does not matter if depth is 0, since its the provided directory only
 					logger.info("---HDFS listStatus for the given Depth, retrieving list of hdfs-depth-paths");
 					this.listStatusForDepth(strInputPath,Integer.parseInt(objInputHDFSItem.getDepth()),listHdfsDepthPaths);
-	
+
 				}
 
 				//Get policy in Ranger using the resource_name from input
@@ -74,7 +74,7 @@ class RangerAssist extends TimerTask {
 				logger.debug(strAllPolicies);
 				List<RangerPolicyResponse> objRangerPolicies=new JsonUtils().parseRangerPolicies(strAllPolicies);
 				logger.debug(objRangerPolicies.iterator().next().getName());
-				
+
 				logger.info("---Check if we need a NEW ranger policy");
 				Iterator<RangerPolicyResponse> iteratorObjRangerPolicies = objRangerPolicies.iterator();
 				boolean policyFoundInRanger=false;
@@ -154,7 +154,7 @@ class RangerAssist extends TimerTask {
 					//refresh the Policy as new paths may have got added
 					objRangerPol=new JsonUtils().parseRangerPolicy(this.getRangerPolicyByName(strRangerPolicyName));
 					listRangerPolPaths=objRangerPol.getResources().getPath().getValues();
-					
+
 					logger.info("---ForEach Ranger-Policy-Path");
 					Iterator<String> iteratorListRangerPolPaths = listRangerPolPaths.iterator();
 					while(iteratorListRangerPolPaths.hasNext())
@@ -270,13 +270,13 @@ class RangerAssist extends TimerTask {
 
 	private WebHDFSConnection connect(Response objInput) throws Exception {
 
-		conn = new PseudoWebHDFSConnection(objInput.getEnvDetails().getHdfsURI(), objInput.getEnvDetails().getOpUsername(), objInput.getEnvDetails().getOpPassword());
+		conn = new PseudoWebHDFSConnection(objInput.getEnvDetails().getHdfsURI(), objInput.getEnvDetails().getOpUsername().split("@")[0], objInput.getEnvDetails().getOpPassword());
 		return conn;
 
 	}
 	private RangerConnection connectr(Response objInput) throws Exception {
 
-		rconn = new BasicAuthRangerConnection(objInput.getEnvDetails().getRangerURI(), objInput.getEnvDetails().getOpUsername(), objInput.getEnvDetails().getOpPassword(), objInput.getHdfschecklist().iterator().next().getRepositoryName());
+		rconn = new BasicAuthRangerConnection(objInput.getEnvDetails().getRangerURI(), objInput.getEnvDetails().getOpUsername().split("@")[0], objInput.getEnvDetails().getOpPassword(), objInput.getHdfschecklist().iterator().next().getRepositoryName());
 		return rconn;
 
 	}
@@ -396,7 +396,7 @@ class RangerAssist extends TimerTask {
 			}
 		}
 
-		
+
 		logger.info("addAndUpdatePolicy: Update Ranger Policy :"+objRangerPol.getName());
 		logger.debug("addAndUpdatePolicy: "+gson.toJson(objRangerPol));
 		rconn.updatePolicyByName(objRangerPol.getName(), gson.toJson(objRangerPol));
