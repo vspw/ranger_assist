@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.TimerTask;
 
 import org.apache.hadoop.security.authentication.client.AuthenticationException;
@@ -24,6 +25,7 @@ class RangerAssist extends TimerTask {
 	WebHDFSConnection conn = null;
 	RangerConnection rconn=null;
 	Response objInput=null;
+	ListIterator<HDFSCheckList> iteratorHDFSCheckList=null;
 	protected static final Logger logger = LoggerFactory.getLogger(RangerAssist.class);
 
 	public RangerAssist(Response objInput) {
@@ -40,7 +42,10 @@ class RangerAssist extends TimerTask {
 			this.rconn=this.connectr(objInput);
 
 			logger.info("Iterating the input HDFS policy checklist");
-			Iterator<HDFSCheckList> iteratorHDFSCheckList= objInput.getHdfschecklist().iterator();
+			//changed the iterator to ListIterator as we should be able to add new checkList items 
+			// if autoIdentifyAttribute is set to true to any of the inputs. A vanilla iterator would
+			// not allow us to add new items to list.
+			iteratorHDFSCheckList=objInput.getHdfschecklist().listIterator();
 			logger.info("ForEach Input HDFS Path");
 
 			while(iteratorHDFSCheckList.hasNext())
@@ -51,23 +56,39 @@ class RangerAssist extends TimerTask {
 				List<String> listInputPaths=objInputHDFSItem.getPaths();
 				ArrayList<String> listHdfsDepthPaths= new ArrayList<String>();
 
-				Iterator<String> iteratorInputPaths = listInputPaths.iterator();
-
+				Iterator<String> iteratorInputPaths = listInputPaths.iterator();				
+				logger.info("---Iterating through the list of Input Paths" );
 				while(iteratorInputPaths.hasNext())
 				{
 					String strInputPath=iteratorInputPaths.next();
-					logger.info("###INPUT PATH:"+strInputPath+"###" );
-					logger.info("---Get list of paths in HDFS based on the depth from input");
+					logger.info("####INPUT PATH:"+strInputPath+"####" );
+					logger.info("----Get list of paths in HDFS based on the depth from input");
 
 					//This does not matter if depth is 0, since its the provided directory only
-					logger.info("---HDFS listStatus for the given Depth, retrieving list of hdfs-depth-paths");
-					this.listStatusForDepth(strInputPath,Integer.parseInt(objInputHDFSItem.getDepth()),listHdfsDepthPaths);
-
+					logger.info("----HDFS listStatus for the given Depth, retrieving list of hdfs-depth-paths");
+					this.listStatusForDepth(strInputPath,objInputHDFSItem.getDepth(),listHdfsDepthPaths);
 				}
 
 				//Check if there any depth paths that are needed to be considered for the input path(s)
 				if (listHdfsDepthPaths.isEmpty())
+				{
+					logger.warn("--No Depth paths found, Going to the next ");
 					break;
+				}
+
+				//if depth paths are calculated AND autoIdentifyAttributes is true
+				//start parsing depth paths and add Dynamic entries the iteratorHDFSCheckList item.
+				if(objInputHDFSItem.isAutoIdentifyAttributes())
+				{
+					autoIdentifyAndReplaceAttributes(objInputHDFSItem,listHdfsDepthPaths,iteratorHDFSCheckList);
+					//the autoIdentifyAttributes input checklist item itself does not represent
+					//a policy item. Hence just move to the next CheckList item.
+					//By this time, new policy(s),if any, should be added to the iterator
+					continue;
+
+				}
+
+				logger.debug("HDFS Check List New: "+new Gson().toJson(objInput));
 
 				//Get policy in Ranger using the resource_name from input
 				//0. Get all policies and check for the input policy name.
@@ -152,8 +173,8 @@ class RangerAssist extends TimerTask {
 				//Delete path from Ranger if allowRangerPathDelete is true and 
 				//Ranger policy has a path not present in HDFS (nothing to do with Depth paths).
 				//TODO: Check to find a way to better organize delete. Maybe functionalize add and delete.
-				logger.info("### TRY DELETING UNUSED PATHS IN POLICY: "+objInputHDFSItem.getResourceName()+" : "+ objInputHDFSItem.getAllowRangerPathDelete()+ "###" );
-				if(objInputHDFSItem.getAllowRangerPathDelete().equalsIgnoreCase("true"))
+				logger.info("### TRY DELETING UNUSED PATHS IN POLICY: "+objInputHDFSItem.getResourceName()+" : "+ objInputHDFSItem.isAllowRangerPathDelete()+ "###" );
+				if(objInputHDFSItem.isAllowRangerPathDelete())
 				{
 					//refresh the Policy as new paths may have got added
 					objRangerPol=new JsonUtils().parseRangerPolicy(this.getRangerPolicyByName(strRangerPolicyName));
@@ -203,6 +224,66 @@ class RangerAssist extends TimerTask {
 		catch (Exception e)
 		{	
 			e.printStackTrace();
+		}
+
+
+	}
+
+	/**
+	 * This procedure takes an InputHDFS
+	 * @param iteratorHDFSCheckList2 
+	 */
+	private void autoIdentifyAndReplaceAttributes(HDFSCheckList objInputHDFSItem, List<String> listHdfsDepthPaths, ListIterator<HDFSCheckList> iteratorHDFSCheckList2)
+	{
+		List<String> objAutoIdentifyAttributeKeys = objInputHDFSItem.getAutoIdentifyAttributesKeys();
+		Iterator<String> iteratorDepthPaths=listHdfsDepthPaths.iterator();
+		HDFSCheckList objNewInputHDFSItem;
+		while(iteratorDepthPaths.hasNext())
+		{
+			String strCurrPath=iteratorDepthPaths.next();
+			strCurrPath = strCurrPath.startsWith("/") ? strCurrPath.substring(1) : strCurrPath;
+			String[] arrayPathTokens=strCurrPath.split("/");
+			logger.debug("autoIdentifyAndReplaceAttributes: Checking if count of keys greater than count of directory in depth path: "+strCurrPath);
+			if(objAutoIdentifyAttributeKeys.size() > arrayPathTokens.length)
+			{
+				logger.warn("autoIdentifyAndReplaceAttributes: Count of AutoIdentifyAttributeKeys greater than depth path size!!");
+				return;
+			}
+			logger.debug("autoIdentifyAndReplaceAttributes: For each input key start replacing it with depth path token item");
+			HashMap<String, String> objMapKeyToToken = new HashMap<String, String>();
+			for(int i=0;i<objAutoIdentifyAttributeKeys.size();i++)
+			{
+				//index = length of depth path tokens - size of autoIdentifyKeys + i
+				int indexArrayPathTokens = (arrayPathTokens.length - objAutoIdentifyAttributeKeys.size())+i;
+				logger.debug("autoIdentifyAndReplaceAttributes: "
+						+ "Putting token: "+ arrayPathTokens[indexArrayPathTokens]
+								+ " in AttributeKey: "+objAutoIdentifyAttributeKeys.get(i));
+				objMapKeyToToken.put(objAutoIdentifyAttributeKeys.get(i), arrayPathTokens[indexArrayPathTokens]);
+			}
+
+			logger.debug("Json HDFS Item to be replaced :"+new Gson().toJson(objInputHDFSItem));
+			String strInputHDFSItem = new Gson().toJson(objInputHDFSItem);
+			Iterator<String> iteratorAutoIdentifyKeys = objMapKeyToToken.keySet().iterator();
+			String key;
+			while(iteratorAutoIdentifyKeys.hasNext())
+			{
+				key=iteratorAutoIdentifyKeys.next(); 
+				logger.debug("Key:Value to be replaced :"+key+":"+objMapKeyToToken.get(key));
+				strInputHDFSItem=strInputHDFSItem.replaceAll(key, objMapKeyToToken.get(key));	
+			}
+
+			objNewInputHDFSItem=new JsonUtils().parseHDFSCheckList(strInputHDFSItem);
+			logger.debug("RESULTANT json CHECKLIST ITEM :"+new Gson().toJson(objNewInputHDFSItem));
+			objNewInputHDFSItem.setAutoIdentifyAttributes(false);
+			objNewInputHDFSItem.setDescription("Dynamically created from Dynamic:LOB-FA-Writes");
+			objNewInputHDFSItem.setDepth(0);
+			List<String> objNewPaths=new ArrayList<String>();
+			objNewPaths.add(strCurrPath);
+			objNewInputHDFSItem.setPaths(objNewPaths);
+			iteratorHDFSCheckList2.add(objNewInputHDFSItem);
+			iteratorHDFSCheckList2.previous();
+			//end creating new object
+
 		}
 
 
@@ -362,6 +443,7 @@ class RangerAssist extends TimerTask {
 	{
 		//print the current state of policy
 		Gson gson = new Gson();
+		logger.debug("createPolicy: "+gson.toJson(objRangerPol));
 		rconn.createPolicy(gson.toJson(objRangerPol));
 	}
 	private void addAndUpdatePolicy(HDFSCheckList objInputHDFSItem,String path, RangerPolicyResponse objRangerPol) throws MalformedURLException, IOException, AuthenticationException

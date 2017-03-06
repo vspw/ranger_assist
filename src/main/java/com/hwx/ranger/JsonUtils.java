@@ -97,6 +97,23 @@ public class JsonUtils {
          }
 
        }
+    
+    protected HDFSCheckList parseHDFSCheckList(String jsonContent)  {
+    	HDFSCheckList inpObject=null;
+         if ((jsonContent == null) || jsonContent.isEmpty()) {
+           return null;
+         } else {
+           try {
+         	inpObject = new Gson().fromJson(jsonContent, HDFSCheckList.class);
+           } 
+           catch (JsonSyntaxException e) {
+         	  logger.error(e.getMessage());
+           }
+           return inpObject;
+         }
+
+       }
+    
     protected String prettyPrint(String jsonContent)  {
    	 String prettyJsonString=null;
    	String data=null;

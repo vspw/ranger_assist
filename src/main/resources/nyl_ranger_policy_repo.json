@@ -1,1 +1,0 @@
-{ "InpEnvDetails": { "envName": "Prod", "hdfsURI": "http://xena.hdp.com:50070", "opPassword": "admin", "opUsername": "admin", "rangerURI": "http://zulu.hdp.com:6080"},"InpHDFSCheckList": [{"depth": "2","description": "checks new directories under temp_2","pathName": "hdfs_temp_2","resourceName": "/tmp"}]}
